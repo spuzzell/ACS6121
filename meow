@@ -1,0 +1,100 @@
+""" #!/usr/bin/env python3
+
+import rospy
+from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import Twist
+
+class WallFollower:
+    def __init__(self):
+        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        self.sub = rospy.Subscriber('/scan', LaserScan, self.callback)
+        self.twist = Twist()
+
+    def callback(self, msg):
+        # Assuming the sensor provides data for the first 15 degrees on the right and left
+        right = min(min(msg.ranges[0:15]), 10)
+        left = min(min(msg.ranges[-15:]), 10)
+
+        if right < 0.7:  # If the wall is detected within 0.7m on the right
+            self.twist.linear.x = 0  # Move forward
+            self.twist.angular.z = -0.7  # Turn left
+        elif left < 0.7:  # If the wall is detected within 0.7m on the left
+            self.twist.linear.x = 0  # Move forward
+            self.twist.angular.z = 0.7  # Turn right
+        else:
+            self.twist.linear.x = 0.5  # Move forward
+            self.twist.angular.z = 0.0  # Stop turning
+
+        self.pub.publish(self.twist)
+
+if __name__ == '__main__':
+    rospy.init_node('wall_follower')
+    wall_follower = WallFollower()
+    rospy.spin() """
+
+
+#!/usr/bin/env python3
+
+import rospy
+from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import Twist
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+import actionlib
+from actionlib_msgs.msg import GoalStatus
+
+class RobotController:
+    def __init__(self):
+        self.client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
+        self.client.wait_for_server()
+
+        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        self.sub = rospy.Subscriber('/scan', LaserScan, self.callback)
+        self.twist = Twist()
+
+        # Define the checkpoints in the 4x4 arena
+        self.checkpoints = [
+            (1, 1), (1, 2), (1, 3), (1, 4),
+            (2, 1), (2, 2), (2, 3), (2, 4),
+            (3, 1), (3, 2), (3, 3), (3, 4),
+            (4, 1), (4, 2), (4, 3), (4, 4)
+        ]
+
+    def callback(self, msg):
+        # Assuming the sensor provides data for the first 15 degrees on the right and left
+        right = min(min(msg.ranges[0:15]), 10)
+        left = min(min(msg.ranges[-15:]), 10)
+
+        if right < 0.7:  # If the wall is detected within 0.7m on the right
+            self.twist.linear.x = 0.5  # Move forward
+            self.twist.angular.z = -0.3  # Turn left
+        elif left < 0.7:  # If the wall is detected within 0.7m on the left
+            self.twist.linear.x = 0.5  # Move forward
+            self.twist.angular.z = 0.3  # Turn right
+        else:
+            self.twist.linear.x = 0.5  # Move forward
+            self.twist.angular.z = 0.0  # Stop turning
+
+        self.pub.publish(self.twist)
+
+    def navigate(self):
+        for checkpoint in self.checkpoints:
+            goal = MoveBaseGoal()
+            goal.target_pose.header.frame_id = "map"
+            goal.target_pose.header.stamp = rospy.Time.now()
+            goal.target_pose.pose.position.x = checkpoint[0]
+            goal.target_pose.pose.position.y = checkpoint[1]
+            goal.target_pose.pose.orientation.w = 1.0  # Assuming a fixed orientation
+
+            self.client.send_goal(goal)
+            self.client.wait_for_result()
+
+            if self.client.get_state() == GoalStatus.SUCCEEDED:
+                rospy.loginfo("Reached checkpoint %s", checkpoint)
+            else:
+                rospy.loginfo("Failed to reach checkpoint %s", checkpoint)
+
+if __name__ == '__main__':
+    rospy.init_node('robot_controller')
+    robot_controller = RobotController()
+    robot_controller.navigate()
+    rospy.spin()
