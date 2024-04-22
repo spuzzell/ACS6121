@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 from base64 import encode
+from typing import List
 import rospy
-
+import numpy as np
+from collections import deque
+import time
 # import the Twist message for publishing velocity commands:
 from geometry_msgs.msg import Twist
 
@@ -31,30 +34,52 @@ class Square():
         #rostopic echo -c imu
         #https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/Imu.html
 
-    def Laser_callback_function(self, topic_data: LaserScan):
-        laser_reading_list = topic_data.ranges
-    
-        degrees = 15
-        degrees +=1
-        print('_______________')
 
-        for i in range(degrees):
-            print(f'_______{i+1}_______')
-            print(f"Left: {round(laser_reading_list[i], 3)} m")
-            print(f"Right: {round(laser_reading_list[-i], 3)} m")
-            
-         
-        """ 
-        print('_______________')
-        print('_______________')   
+
+    def update_readings_history(self, laser_reading_list):
+        # Update each deque with the new reading for that degree
+        for i in range(len(laser_reading_list)):
+            self.readings_history[i].append(laser_reading_list[i])
+
+    def get_degree_average(self, degree):
+        # Compute the average for a specific degree
+        if self.readings_history[degree]:  # Check if there is data in the deque
+            return np.mean([x for x in self.readings_history[degree] if x != 0])
+        return 0  # Return 0 or an appropriate default value if no valid data exists
+
+    def interpret_reading(self, degree, reading):
         
-        for i in range(degrees):
-            print(laser_reading_list[i])
-            if i == 15:
-                for j in range(degrees):
-                    print(laser_reading_list[-j]) """
+        moving_average = self.get_degree_average(degree)
 
+        if reading == 0:
+            if moving_average >= self.threshold_max or self.min_max_lidar[degree] == "max":
+                self.min_max_lidar[degree] = "max"
+                return 'max range'
+            elif moving_average <= self.threshold_min or self.min_max_lidar[degree] == "min":
+                self.min_max_lidar[degree] = "min"
+                return 'min range'
+            else:
+                return 'ambiguous'
+        else:
+            self.min_max_lidar[degree] = None  # Reset memory when a valid reading is detected
+            return f"{round(reading, 3)} m"
 
+    def Laser_callback_function(self, topic_data: LaserScan):
+        laser_reading_list = [0 if x == float('inf') else x for x in topic_data.ranges]  # Process and filter data
+        self.update_readings_history(laser_reading_list)  # Update readings history
+
+        
+        print('_______________')
+        for i in range(self.display_degrees):
+            current_left = laser_reading_list[i]
+            current_right = laser_reading_list[-(i + 1)]
+
+            interpreted_left = self.interpret_reading(i, current_left)
+            interpreted_right = self.interpret_reading(360 - i - 1, current_right)
+
+            print(f'_______{i+1}_______')
+            print(f"Left: {interpreted_left}")
+            print(f"Right: {interpreted_right}")
 
 
     def Odom_callback_function(self, topic_data: Odometry):
@@ -101,9 +126,18 @@ class Square():
         self.spam_count = 0
         self.checkpoint = 0
 
-        # This might be useful in the main_loop() (to switch between 
-        # turning and moving forwards)
-        self.turn = False
+        "Lidar related stuff"
+        # Initialize a list of deques, one for each degree
+        num_degrees=360 
+        history_size=5
+        self.threshold_max = 3.0
+        self.threshold_min = 0.5
+        self.display_degrees = 90  # Number of degrees to display (adjust as needed)
+
+        self.readings_history = [deque(maxlen=history_size) for _ in range(num_degrees)]
+        self.min_max_lidar = [None] * num_degrees  # Maintain a state for each degree
+
+        
 
         # setup a '/cmd_vel' publisher and an '/odom' subscriber:
         self.pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
@@ -174,12 +208,7 @@ class Square():
             # publish whatever velocity command has been set in your code above:
             self.pub.publish(self.vel_cmd)
             
-            if self.spam_count == 2:
-                #print(f"X: {round(self.x, 3)} m, Y: {round(self.y, 3)} m, Yaw: {round(self.theta_z, 3)} rad")
-                #print(f"X0: {round(self.x0, 3)} m, Y0: {round(self.y0, 3)} m, Yaw0: {round(self.theta_z0, 3)} rad")
-                self.spam_count = 0
-            else:
-                self.spam_count = self.spam_count + 1
+            
             # maintain the loop rate @ 10 hz
             self.rate.sleep()
 
@@ -188,5 +217,4 @@ if __name__ == "__main__":
     try:
         node.main_loop()
     except rospy.ROSInterruptException:
-        print("Shit broke")
         rospy.loginfo(f"Shit node broke")
