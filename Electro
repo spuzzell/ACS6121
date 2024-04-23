@@ -1,0 +1,108 @@
+import math
+import numpy as np
+
+def scan_act()
+	scan=scan
+	dmax = 12.5
+	b = 2                
+	a = b * dmax         
+	C = 15  
+
+	for i in range(0, len(scan)-1)
+		m = C^2*(a-b*scan[i])
+		his[i]=m
+
+	return his
+
+def euclidean_distance(s, e):
+    distance = math.sqrt((e[1] - s[1])**2 + (e[0] - s[0])**2)
+    
+    if distance < 0.25:
+        distance = 0
+    return distance
+
+def calculate_angle(s, e):
+    dy = e[1] - s[1]
+    dx = e[0] - s[0]
+    
+    if dx == 0:
+        angle = math.pi / 2
+    else:
+        angle = math.atan(dy / dx)
+        if dx < 0:
+            if dy > 0:
+                angle = math.pi - abs(angle)
+            else:
+                angle = math.pi + abs(angle)
+        else:
+            if dy < 0:
+                angle = 2 * math.pi - abs(angle)
+    
+    return angle
+
+def howmany(c1, c2):
+    n = 72  
+    dif = min(abs(c1 - c2), abs(c1 - c2 - n), abs(c1 - c2 + n))
+    return dif
+
+start    = [0, 0]
+endpoint = [1.5, 1.5]
+
+step = 0.01              
+f = 1                    
+alpha = math.radians(f)   
+n = int(360 / f)-1           
+smax = 18                      
+
+robot = startpoint
+kt = round(calculate_angle(robot, endpoint) / alpha)
+
+if kt == 0:
+    kt = n
+
+while euclidean_distance(s,e) != 0:
+	if(euclidean_distance(s,e))>step:
+		his=scan_act()
+
+		j=0
+		q=0 
+
+		while q <= n:
+			if his[q] == 0: 
+        		kl = q 
+        		while q <= n and his[q] == 0:
+            		kr = q  
+            		q += 1
+
+            	if kr - kl > smax:
+    				c[j] = round(kr - smax/2)
+    				c[j+1] = round(kl + smax/2)
+    				j += 2
+
+                    if kt >= kl and kt <= kr:
+    					c[j] = kt
+    					j += 1
+				elif kr - kl > smax/5:
+    				c[j] = round((kl + kr) / 2)
+    				j += 1
+            else: 
+                q += 1;           
+        
+        g = np.zeros((j - 1, 1))
+		how = np.zeros((j - 1, 1)) 
+
+        for i in range(0, len(c)-1):
+        	g[i] = c[i]
+        	how[i] = howmany(g[i], kt)   
+
+        ft = np.where(how == np.min(how))[0]
+        fk = ft[0] 
+        kb = g(fk)
+        robot = robot + [step * np.cos(kb * alpha), step * np.sin(kb * alpha)]
+        mover(robot)
+        kt = round(calculateangle(robot, endpoint) / alpha)
+
+        if kt == 0:
+    		kt = n 		
+	else:
+    	break
