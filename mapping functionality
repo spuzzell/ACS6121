@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""This script allows the turtlebot3 robot to explore its surroundings."""
+
+
+import rospy
+from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import Twist
+import subprocess
+
+
+
+class Explorer():
+    """The Explorer class."""
+
+    def __init__(self):
+        """Initialize the Explorer class."""
+        rospy.init_node('explorer_node', disable_signals=True, anonymous=True)
+        self.slam_process = None
+        self.start_slam()
+
+        rate = 50
+        period = 1. / rate
+
+        self.speed_linear = 0.23
+        self.speed_angular = 1.43
+        self.laser_data_full = []
+
+        self.distance_clipping = 3.6
+        self.threshold_backward = 0.265
+        self.threshold_turning = 0.5
+
+        # Subscribers
+        rospy.Subscriber("/scan", LaserScan, self.callback_laser)
+
+        # Publishers
+        self.publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10, latch=True)
+
+        # Timers
+        rospy.Timer(rospy.Duration(period), self.update_controller)
+
+        # Shutdown Function
+        rospy.on_shutdown(self.shutdown)
+
+    def start_slam(self):
+        """Launches the turtlebot3_slam launch file to start SLAM."""
+        try:
+            self.slam_process = subprocess.Popen(["roslaunch", "turtlebot3_slam", "turtlebot3_slam.launch"])
+            rospy.loginfo("TurtleBot3 SLAM has been successfully launched.")
+        except Exception as e:
+            rospy.logerr("Failed to start TurtleBot3 SLAM: " + str(e))
+
+    def save_map(self):
+        map_path = "/home/student/catkin_ws/src/week2_navigation/my_map"
+        try:
+            rospy.loginfo("Saving the map to {}".format(map_path))
+            subprocess.check_call(["rosrun", "map_server", "map_saver", "-f", map_path])
+            rospy.loginfo("Map successfully saved.")
+        except subprocess.CalledProcessError as e:
+            rospy.logerr("Failed to save the map: {}".format(e))
+        except Exception as e:
+            rospy.logerr("An unexpected error occurred: {}".format(e))
+
+
+
+    def go_forward(self):
+        """Make the robot go forward."""
+        twist = Twist()
+        twist.linear.x = self.speed_linear
+        twist.angular.z = 0
+        self.publisher.publish(twist)
+
+    def go_backward(self):
+        """Make the robot go backward."""
+        twist = Twist()
+        twist.linear.x = -self.speed_linear + 0.024
+        twist.angular.z = 0
+        self.publisher.publish(twist)
+
+    def turn_left_smooth(self):
+        """Make the robot turn left smoothly."""
+        twist = Twist()
+        twist.linear.x = self.speed_linear / 2
+        twist.angular.z = self.speed_angular
+        self.publisher.publish(twist)
+
+    def turn_right_smooth(self):
+        """Make the robot turn right smoothly."""
+        twist = Twist()
+        twist.linear.x = self.speed_linear / 2
+        twist.angular.z = -self.speed_angular
+        self.publisher.publish(twist)
+
+    def turn_left_hard(self):
+        """Make the robot turn left sharply."""
+        twist = Twist()
+        twist.linear.x = 0.0
+        twist.angular.z = self.speed_angular
+        self.publisher.publish(twist)
+
+    def turn_right_hard(self):
+        """Make the robot turn right sharply."""
+        twist = Twist()
+        twist.linear.x = 0.0
+        twist.angular.z = -self.speed_angular
+        self.publisher.publish(twist)
+
+    def stop(self):
+        """Stop the robot."""
+        twist = Twist()
+        twist.linear.x = 0
+        twist.angular.z = 0
+        self.publisher.publish(twist)
+
+    def callback_laser(self, msg):
+        """Callback function for the laser scan."""
+        self.laser_data_full = msg.ranges
+
+        for i, _ in enumerate(self.laser_data_full):
+            if self.laser_data_full[i] == 0:
+                self.laser_data_full = list(self.laser_data_full)
+                self.laser_data_full[i] = self.distance_clipping
+                self.laser_data_full = tuple(self.laser_data_full)
+
+    def avoid_obstacles(self):
+        """Avoid obstacles."""
+
+        # if object is headon, move backward
+        if any((distance < self.threshold_backward for distance in self.laser_data_full[0:20]) or any(distance < self.threshold_backward for distance in self.laser_data_full[70:90])):
+            self.go_backward()
+        # if there is significant obstacles in the indices from 0 to 40, turn right
+        elif (any(distance < self.threshold_turning for distance in self.laser_data_full[0:40])) and not (any(distance < self.threshold_turning for distance in self.laser_data_full[320:360])):
+            if any(distance < self.threshold_turning/2 for distance in self.laser_data_full[0:40]):
+                self.turn_right_hard()
+            else:
+                self.turn_right_smooth()
+        # if there is significant obstacles in the indices from 320 to 360, turn left
+        elif (any(distance < self.threshold_turning for distance in self.laser_data_full[320:360])) and not (any(distance < self.threshold_turning for distance in self.laser_data_full[0:40])):
+            if any(distance < self.threshold_turning/2 for distance in self.laser_data_full[320:360]):
+                self.turn_left_hard()
+            else:
+                self.turn_left_smooth()
+        elif any(distance < self.threshold_turning for distance in self.laser_data_full[0:40]):
+            if any(distance < self.threshold_turning/2 for distance in self.laser_data_full[0:40]):
+                self.turn_right_hard()
+            else:
+                self.turn_right_smooth()
+        # if there is significant obstacles in the indices from 320 to 360, turn left
+        elif any(distance < self.threshold_turning for distance in self.laser_data_full[320:360]):
+            if any(distance < self.threshold_turning/2 for distance in self.laser_data_full[320:360]):
+                self.turn_left_hard()
+            else:
+                self.turn_left_smooth()
+        else:
+            self.go_forward()
+
+    def update_controller(self, _):
+        """Update the controller."""
+        # Check if the laser data is available
+        if self.laser_data_full:
+            self.avoid_obstacles()
+            pass
+        else:
+            self.stop()
+
+    def shutdown(self):
+        rospy.logwarn("Shutting down explorer_node.")
+        self.save_map()
+        if self.gmapping_process:
+            self.gmapping_process.terminate()
+        # Set the linear and angular velocity to 0
+        twist = Twist()
+        twist.linear.x = 0
+        twist.angular.z = 0
+        self.publisher.publish(twist)
+
+
+def main():
+    try:
+        Explorer()
+        rospy.spin()
+    except (rospy.exceptions.ROSInitException,
+            rospy.exceptions.ROSException, KeyboardInterrupt):
+        rospy.signal_shutdown("Done")
+
+
+if __name__ == '__main__':
+    main()
+
