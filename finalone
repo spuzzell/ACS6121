@@ -35,7 +35,7 @@ class Explore():
             rospy.logerr("Failed to start TurtleBot3 SLAM: " + str(e))
 
     def save_map(self):
-        map_path = "/home/student/catkin_ws/src/week2_navigation/my_map"
+        map_path = "/home/student/catkin_ws/src/acs6121_realrobot/maps"
         try:
             rospy.loginfo("Saving the map to {}".format(map_path))
             subprocess.check_call(["rosrun", "map_server", "map_saver", "-f", map_path])
