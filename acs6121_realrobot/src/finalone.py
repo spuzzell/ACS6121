@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import rospy
-from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import Twist
 import subprocess
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import LaserScan
 
 class Explore():
 
     def __init__(self):
-        rospy.init_node('Gr_idk', disable_signals=True, anonymous=True)
+        rospy.init_node('Gr_29', anonymous=True, disable_signals=True)
 
         self.range_limit = 3.602
         self.step_back_thresh = 0.265
