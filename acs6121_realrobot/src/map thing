@@ -1,0 +1,32 @@
+import rospy
+import roslaunch
+
+class Explore():
+    def __init__(self):
+        rospy.init_node('Gr_29', anonymous=True)
+        self.uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+        roslaunch.configure_logging(self.uuid)
+
+    def start_slam(self):
+        """Launches the turtlebot3_slam launch file to start SLAM."""
+        try:
+            launch = roslaunch.parent.ROSLaunchParent(self.uuid, ["turtlebot3_slam", "turtlebot3_slam.launch"])
+            launch.start()
+            rospy.loginfo("TurtleBot3 SLAM has been successfully launched.")
+        except Exception as e:
+            rospy.logerr("Failed to start TurtleBot3 SLAM: " + str(e))
+
+    def shutdown(self):
+        rospy.loginfo("Shutting down the exploration node.")
+        # Handling shutdown behaviors
+
+def main():
+    explorer = Explore()
+    try:
+        explorer.start_slam()
+        rospy.spin()
+    finally:
+        explorer.shutdown()
+
+if __name__ == '__main__':
+    main()
