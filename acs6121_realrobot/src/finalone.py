@@ -29,7 +29,7 @@ class Explore():
     def start_slam(self):
         """Launches the turtlebot3_slam launch file to start SLAM."""
         try:
-            self.slam_process = subprocess.Popen(["roslaunch", "turtlebot3_slam", "turtlebot3_slam.launch"])
+            self.slam_process = subprocess.Popen(["roslaunch", "turtlebot3_gmapping", "turtlebot3_gmapping.launch"])
             rospy.loginfo("TurtleBot3 SLAM has been successfully launched.")
         except Exception as e:
             rospy.logerr("Failed to start TurtleBot3 SLAM: " + str(e))
