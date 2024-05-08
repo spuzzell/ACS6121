@@ -17,33 +17,10 @@ class Explore():
         self.angular_speed = 1.392
         
         self.laser_data_full = []
-
         rospy.Subscriber("/scan", LaserScan, self.callback_laser)
-
         self.publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10, latch=True)
-
         rospy.Timer(rospy.Duration(0.02), self.update_controller)
-
         rospy.on_shutdown(self.shutdown)
-
-    def start_slam(self):
-        """Launches the turtlebot3_slam launch file to start SLAM."""
-        try:
-            self.slam_process = subprocess.Popen(["roslaunch", "turtlebot3_slam", "turtlebot3_slam.launch"])
-            rospy.loginfo("TurtleBot3 SLAM has been successfully launched.")
-        except Exception as e:
-            rospy.logerr("Failed to start TurtleBot3 SLAM: " + str(e))
-
-    def save_map(self):
-        map_path = "/home/student/catkin_ws/src/acs6121_realrobot/maps"
-        try:
-            rospy.loginfo("Saving the map to {}".format(map_path))
-            subprocess.check_call(["rosrun", "map_server", "map_saver", "-f", map_path])
-            rospy.loginfo("Map successfully saved.")
-        except subprocess.CalledProcessError as e:
-            rospy.logerr("Failed to save the map: {}".format(e))
-        except Exception as e:
-            rospy.logerr("An unexpected error occurred: {}".format(e))
 
     def publish_twist(self, linear_x, angular_z):
         twist = Twist()
@@ -75,11 +52,9 @@ class Explore():
                 self.laser_data_full = tuple(self.laser_data_full)
 
     def avoid_obstacles(self):
-        # Define the degree ranges
         right_degrees = self.laser_data_full[0:40]
         left_degrees = self.laser_data_full[320:360]
 
-        # Check for obstacles
         if any((distance < self.step_back_thresh for distance in self.laser_data_full[0:20]) or any(distance < self.step_back_thresh for distance in self.laser_data_full[70:90])):
             self.STEP_BACK()
         elif min(right_degrees, default=self.turn_thresh+1) < self.turn_thresh:
@@ -112,16 +87,9 @@ class Explore():
         else:
             self.TERMINATED()
 
-    def shutdown(self):
-        rospy.logwarn("Shutting down explorer_node.")
-        self.save_map()
-        if self.gmapping_process:
-            self.gmapping_process.terminate()
-        # Set the linear and angular velocity to 0
-        twist = Twist()
-        twist.linear.x = 0
-        twist.angular.z = 0
-        self.publisher.publish(twist)
+    def shutdownhook(self):
+        self.ctrl_c = True
+
 
 def main():
     try:
