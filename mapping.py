@@ -49,3 +49,13 @@ class Mapper:
 if __name__ == '__main__':
     node = Mapper()
     node.main()
+
+
+#put this inside the xml file
+#<launch>
+    #<!-- Node 1 -->
+    #<node name="node1" pkg="my_package" type="node1.py" output="screen" />
+    
+    #<!-- Node 2 -->
+    #<node name="node2" pkg="my_package" type="node2.py" output="screen" />
+#</launch>
