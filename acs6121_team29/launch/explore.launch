@@ -43,6 +43,6 @@ https://github.com/ROBOTIS-GIT/turtlebot3/blob/master/turtlebot3_navigation/laun
   </include>
 
   <!-- rviz (just visualisation doesn't effect performance) -->
-  <!-- <node pkg="rviz" type="rviz" name="rviz" required="true"
+   <node pkg="rviz" type="rviz" name="rviz" required="true"
     args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
-</launch> -->
+</launch> 
