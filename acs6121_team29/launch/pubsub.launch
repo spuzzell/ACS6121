@@ -1,5 +1,0 @@
-<launch>
-<node pkg="acs6121_team29" type="finalone.py" name="finalone_node" output="screen">
-</node>
-</launch>
-
