@@ -18,7 +18,7 @@ class Explore():
         
         self.laser_data_full = []
         rospy.Subscriber("/scan", LaserScan, self.callback_laser)
-        self.publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10, latch=True)
+        self.publisher = rospy.Publisher("/cmd_vel", Twist, queue_size=10, latch=True)
         rospy.Timer(rospy.Duration(0.02), self.update_controller)
         rospy.on_shutdown(self.shutdownhook)
 
